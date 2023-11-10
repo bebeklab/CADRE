@@ -1,5 +1,3 @@
 # CADRE
-CAncer Drug Response nEtworks (CADRE) Predicts Synergistic Drug Combinations for Personalized Therapies
+CAncer Drug Response nEtworks (CADRE) Predicts Synergistic Drug Combinations.
 
-
-Source code will be available publicly once the work is published.
