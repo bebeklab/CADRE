@@ -355,8 +355,10 @@ display: none;
 </div>
 
 
-<div id="setting-environment-and-define-function" class="section level1">
-<h1>Setting environment and define function</h1>
+<div id="prepare-data-and-environment" class="section level1">
+<h1>Prepare data and environment</h1>
+<div id="setting-environment-and-define-function" class="section level2">
+<h2>Setting environment and define function</h2>
 <pre class="r"><code>options(scipen=999)
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 requiredPackages2=c(&quot;Biobase&quot;,&quot;dplyr&quot;,&quot;fgsea&quot;,&quot;ggplot2&quot;,&quot;igraph&quot;,&quot;limma&quot;,&quot;parallel&quot;,&quot;pROC&quot;,&quot;tidyr&quot;)
@@ -365,8 +367,8 @@ for (k in requiredPackages2){
   suppressPackageStartupMessages(library(k,character.only = TRUE))
 }</code></pre>
 </div>
-<div id="loading-data-and-preprocessing" class="section level1">
-<h1>Loading data and preprocessing</h1>
+<div id="loading-data-and-preprocessing" class="section level2">
+<h2>Loading data and preprocessing</h2>
 <pre class="r"><code>DC_drug=read.csv(&quot;./data/drug_api.csv&quot;)
 DC_drug &lt;- DC_drug %&gt;%
   mutate(stitch_name = ifelse(stitch_name == &quot;&quot; | is.na(stitch_name), dname, stitch_name))
@@ -387,8 +389,8 @@ tissue_cancer_infosheet_temp=tissue_cancer_infosheet[9,]
 tissue=tissue_cancer_infosheet_temp[1,1]
 cancer=tissue_cancer_infosheet_temp[1,2]</code></pre>
 </div>
-<div id="define-function" class="section level1">
-<h1>Define function</h1>
+<div id="define-function" class="section level2">
+<h2>Define function</h2>
 <pre class="r"><code>order_2columns &lt;- function(x){
   idx &lt;- x[,1] &gt; x[,2]
   x[idx, c(1,2)] &lt;- x[idx, c(2,1)]
@@ -476,18 +478,13 @@ collapseProbes &lt;- function (x
   esetToReturn
 }</code></pre>
 </div>
+</div>
 <div id="create-folders" class="section level1">
 <h1>Create folders</h1>
 <pre class="r"><code>tissue_folder=paste0(&quot;./data/&quot;,tissue,&quot;/&quot;)
-dir.create(paste0(tissue_folder),recursive = TRUE)</code></pre>
-<pre><code>## Warning in dir.create(paste0(tissue_folder), recursive = TRUE): &#39;.\data\skin&#39;
-## already exists</code></pre>
-<pre class="r"><code>dir.create(paste0(tissue_folder,&quot;RDS&quot;),recursive = TRUE)</code></pre>
-<pre><code>## Warning in dir.create(paste0(tissue_folder, &quot;RDS&quot;), recursive = TRUE):
-## &#39;.\data\skin\RDS&#39; already exists</code></pre>
-<pre class="r"><code>dir.create(paste0(tissue_folder,&quot;csv&quot;),recursive = TRUE)</code></pre>
-<pre><code>## Warning in dir.create(paste0(tissue_folder, &quot;csv&quot;), recursive = TRUE):
-## &#39;.\data\skin\csv&#39; already exists</code></pre>
+dir.create(paste0(tissue_folder),recursive = TRUE)
+dir.create(paste0(tissue_folder,&quot;RDS&quot;),recursive = TRUE)
+dir.create(paste0(tissue_folder,&quot;csv&quot;),recursive = TRUE)</code></pre>
 </div>
 <div id="process-summary-data" class="section level1">
 <h1>Process summary data</h1>
@@ -700,8 +697,39 @@ rm(geoID1, geo_folder, selected_gse, eset_selected)</code></pre>
 </div>
 <div id="collapse-to-reduce-unnecessary-probes" class="section level2">
 <h2>Collapse to reduce unnecessary probes</h2>
+<pre class="r"><code>eset.collapsed &lt;- collapseProbes(x = eset_GSE116450
+                                 , colNameOfGeneSymbol = &quot;Gene Symbol&quot;
+                                 , method = &quot;variance&quot;)</code></pre>
 <pre><code>## Processing eset using: variance</code></pre>
+<pre class="r"><code>fData &lt;- fData(eset.collapsed)
+eset.collapsed &lt;- eset.collapsed[!is.na(fData$`Gene Symbol`),] 
+fData &lt;- fData(eset.collapsed)
+pData &lt;- pData(eset.collapsed)
+mat &lt;- exprs(eset.collapsed)
+
+if(!(assertthat::are_equal(rownames(fData), rownames(mat)) &amp; 
+     assertthat::are_equal(rownames(pData), colnames(mat))) ) {
+  stop(&quot;fData or pData feature names does not match\n&quot;)
+} else {
+  cat(&quot;fData and pData match exprs matrix.&quot;)
+}</code></pre>
 <pre><code>## fData and pData match exprs matrix.</code></pre>
+<pre class="r"><code>rownames(mat) &lt;- fData(eset.collapsed)$`Gene Symbol`
+rownames(fData) &lt;- fData(eset.collapsed)$`Gene Symbol`
+eset.collapsed.symbol  &lt;- ExpressionSet(assayData   = mat, 
+                                        phenoData   = new(&quot;AnnotatedDataFrame&quot;,data = pData  ),
+                                        featureData = new(&quot;AnnotatedDataFrame&quot;, data = fData), 
+                                        annotation  = &quot;illuminaHumanv4&quot;)
+
+eset.collapsed.symbol &lt;- eset.collapsed.symbol[!grepl(pattern = &quot;LOC.*&quot;
+                                                      , x = rownames(exprs(eset.collapsed.symbol))), ]
+eset.collapsed.symbol &lt;- eset.collapsed.symbol[!grepl(pattern = &quot;KIA.*&quot;
+                                                      , x = rownames(exprs(eset.collapsed.symbol))), ]
+eset.collapsed.symbol &lt;- eset.collapsed.symbol[!grepl(pattern = &quot;.*orf.*&quot;
+                                                      , x = rownames(exprs(eset.collapsed.symbol))), ]
+
+eset_GSE116450_collapsed=eset.collapsed.symbol
+rm(eset.collapsed,eset.collapsed.symbol, fData, pData, mat)</code></pre>
 </div>
 <div id="specifying-contrast-for-differential-gene-expression-analysis" class="section level2">
 <h2>Specifying contrast for differential gene expression analysis</h2>
@@ -778,7 +806,7 @@ drug_interesting_pathway &lt;- parLapply(cl, compoundnames_unique[,1], function(
 })
 })</code></pre>
 <pre><code>##    user  system elapsed 
-##    0.32    1.06  469.50</code></pre>
+##    0.30    0.92  428.83</code></pre>
 <pre class="r"><code>stopCluster(cl)
 drug_interesting_pathway15=drug_interesting_pathway
 names(drug_interesting_pathway)=compoundnames_unique[,1]
@@ -795,11 +823,7 @@ indices2=indices
 for(i in indices){
   indices2[i]=dim(drug_interesting_pathway[[i]])[1]
 }
-mean(indices2)</code></pre>
-<pre><code>## [1] 7.362745</code></pre>
-<pre class="r"><code>sum(indices2)</code></pre>
-<pre><code>## [1] 751</code></pre>
-<pre class="r"><code>table(indices2==0)</code></pre>
+table(indices2==0)</code></pre>
 <pre><code>## 
 ## FALSE  TRUE 
 ##    93     9</code></pre>
@@ -853,11 +877,6 @@ weight_drug_pathway_melanoma &lt;- full_join(property_data1, property_data1, c(&
   # Aggregate duplicate edges: vertices linked using multiple properties
   group_by(node.x, node.y) %&gt;% 
   summarise(weight = n())</code></pre>
-<pre><code>## Warning in full_join(property_data1, property_data1, c(property = &quot;property&quot;)): Detected an unexpected many-to-many relationship between `x` and `y`.
-## ℹ Row 1 of `x` matches multiple rows in `y`.
-## ℹ Row 3 of `y` matches multiple rows in `x`.
-## ℹ If a many-to-many relationship is expected, set `relationship =
-##   &quot;many-to-many&quot;` to silence this warning.</code></pre>
 <pre><code>## `summarise()` has grouped output by &#39;node.x&#39;. You can override using the
 ## `.groups` argument.</code></pre>
 <pre class="r"><code>saveRDS(weight_drug_pathway_melanoma,file=paste0(tissue_folder,&quot;RDS&quot;,&quot;/weight_drug_pathway_&quot;,tissue,&quot;_kegg.RDS&quot;))</code></pre>
@@ -869,35 +888,7 @@ graph_pathway=igraph::simplify(graph_pathway)
 E(graph_pathway)$weight=E(graph_pathway)$weight/2
 
 saveRDS(graph_pathway,file=paste0(tissue_folder,&quot;RDS/graph_pathway_kegg.RDS&quot;))
-V(graph_pathway)</code></pre>
-<pre><code>## + 93/93 vertices, named, from 2c3043f:
-##  [1] 5-aminolevulinic acid          5-azacytidine                 
-##  [3] 5-fluorouracil                 6-mercaptopurine              
-##  [5] 6-thioguanine                  7-ethyl-10-hydroxycamptothecin
-##  [7] 8-methoxypsoralen              BCNU                          
-##  [9] FUdR                           abiraterone                   
-## [11] actinomycin D                  allopurinol                   
-## [13] anastrozole                    axitinib                      
-## [15] bendamustine                   bleomycin                     
-## [17] busulfan                       cabazitaxel                   
-## [19] capecitabine                   celecoxib                     
-## + ... omitted several vertices</code></pre>
-<pre class="r"><code>E(graph_pathway)</code></pre>
-<pre><code>## + 2552/2552 edges from 2c3043f (vertex names):
-##  [1] 5-aminolevulinic acid--5-azacytidine 5-aminolevulinic acid--BCNU         
-##  [3] 5-aminolevulinic acid--actinomycin D 5-aminolevulinic acid--allopurinol  
-##  [5] 5-aminolevulinic acid--bleomycin     5-aminolevulinic acid--busulfan     
-##  [7] 5-aminolevulinic acid--capecitabine  5-aminolevulinic acid--celecoxib    
-##  [9] 5-aminolevulinic acid--chlorambucil  5-aminolevulinic acid--clofarabine  
-## [11] 5-aminolevulinic acid--cytarabine    5-aminolevulinic acid--dacarbazine  
-## [13] 5-aminolevulinic acid--dasatinib     5-aminolevulinic acid--daunorubicin 
-## [15] 5-aminolevulinic acid--decitabine    5-aminolevulinic acid--dexrazoxane  
-## [17] 5-aminolevulinic acid--doxorubicin   5-aminolevulinic acid--etoposide    
-## [19] 5-aminolevulinic acid--everolimus    5-aminolevulinic acid--exemestane   
-## + ... omitted several edges</code></pre>
-<pre class="r"><code>mean(E(graph_pathway)$weight)</code></pre>
-<pre><code>## [1] 2.374608</code></pre>
-<pre class="r"><code>ggplot(as.data.frame(E(graph_pathway)$weight), aes(x=E(graph_pathway)$weight)) +
+ggplot(as.data.frame(E(graph_pathway)$weight), aes(x=E(graph_pathway)$weight)) +
   geom_histogram(binwidth=1, color=&quot;black&quot;, fill=&quot;skyblue&quot;) +
   labs(x=&quot;Value&quot;, y=&quot;Frequency&quot;, title=&quot;Histogram of Values&quot;) +
   theme_minimal() </code></pre>
@@ -928,7 +919,7 @@ V(graph_pathway)</code></pre>
     graph_pathway_trim=delete.vertices(graph_pathway_trim, which(degree(graph_pathway_trim)&lt;=0))
     
     set.seed(42) 
-    clusters=cluster_louvain(graph_pathway_trim,resolution = 1)
+    clusters=cluster_walktrap(graph_pathway_trim)
     membership=as.data.frame(membership(clusters))
     cluster_results=data.frame(id=rownames(membership),cluster=membership[,1])
     
@@ -1013,7 +1004,7 @@ synergy_threshold=synergy_threshold_list[1]
 prediction1$score=ifelse(prediction1$score&gt;synergy_threshold,1,0)
 roc_obj &lt;- roc(prediction1$score, prediction1$probability,levels=c(0,1),direction=&quot;&lt;&quot;)
 print(auc(roc_obj))</code></pre>
-<pre><code>## Area under the curve: 0.8321</code></pre>
+<pre><code>## Area under the curve: 0.8172</code></pre>
 <pre class="r"><code>write.csv(prediction1,paste0(tissue_folder,&quot;prediction.csv&quot;))</code></pre>
 </div>
 <div id="session-info" class="section level1">

@@ -5,8 +5,8 @@ date: "2023-07-20"
 editor_options: 
   chunk_output_type: console
 ---
-
-# Setting environment and define function
+# Prepare data and environment
+## Setting environment and define function
 ```{r}
 options(scipen=999)
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
@@ -16,7 +16,7 @@ for (k in requiredPackages2){
   suppressPackageStartupMessages(library(k,character.only = TRUE))
 }
 ```
-# Loading data and preprocessing
+## Loading data and preprocessing
 ```{r}
 DC_drug=read.csv("./data/drug_api.csv")
 DC_drug <- DC_drug %>%
@@ -39,7 +39,7 @@ tissue=tissue_cancer_infosheet_temp[1,1]
 cancer=tissue_cancer_infosheet_temp[1,2]
 ```
 
-# Define function
+## Define function
 ```{r}
 order_2columns <- function(x){
   idx <- x[,1] > x[,2]
@@ -129,7 +129,7 @@ collapseProbes <- function (x
 }
 ```
 # Create folders
-```{r}
+```{r, warning=FALSE}
 tissue_folder=paste0("./data/",tissue,"/")
 dir.create(paste0(tissue_folder),recursive = TRUE)
 dir.create(paste0(tissue_folder,"RDS"),recursive = TRUE)
@@ -339,7 +339,7 @@ rm(geoID1, geo_folder, selected_gse, eset_selected)
 ```
 
 ## Collapse to reduce unnecessary probes
-```{r collapseProbes, cache=FALSE, echo=FALSE}
+```{r collapseProbes, cache=FALSE}
 eset.collapsed <- collapseProbes(x = eset_GSE116450
                                  , colNameOfGeneSymbol = "Gene Symbol"
                                  , method = "variance")
@@ -470,8 +470,6 @@ indices2=indices
 for(i in indices){
   indices2[i]=dim(drug_interesting_pathway[[i]])[1]
 }
-mean(indices2)
-sum(indices2)
 table(indices2==0)
 
 drug_interesting_pathway=drug_interesting_pathway[!indices2==0]
@@ -480,7 +478,7 @@ rm(indices,indices2)
 
 
 ## put pathway list to a dataframe, and save it as csv
-```{r, error = TRUE}
+```{r}
 pathway_list=data.frame(all_list=names(pathway_gene_set))
 for (drug in names(drug_interesting_pathway))
 {
@@ -503,7 +501,7 @@ write.csv(drug_pathway_melanoma,paste0(paste0(tissue_folder,"csv","/drug_pathway
 
 # Graph generation
 ## Make graph property
-```{r, error = TRUE}
+```{r}
 drug_pathway_melanoma=cbind("probes"=rownames(drug_pathway_melanoma),drug_pathway_melanoma)
 property_data <- reshape2::melt(drug_pathway_melanoma, id.vars = "probes",variable.name = "Node", value.name = "Property")
 # Adjust the dataframe so that rows with Property==0 are removed
@@ -516,7 +514,7 @@ rm(drug_pathway_melanoma)
 ```
 
 ## Create an adjacency matrix from property_data
-```{r}
+```{r, warning=FALSE}
 ### https://stackoverflow.com/questions/45003500/create-an-adjacency-matrix-or-list-based-on-shared-properties-from-a-data-frame
 weight_drug_pathway_melanoma <- full_join(property_data1, property_data1, c('property' = 'property')) %>% 
   # We no longer need property -> remove
@@ -537,10 +535,6 @@ graph_pathway=igraph::simplify(graph_pathway)
 E(graph_pathway)$weight=E(graph_pathway)$weight/2
 
 saveRDS(graph_pathway,file=paste0(tissue_folder,"RDS/graph_pathway_kegg.RDS"))
-V(graph_pathway)
-E(graph_pathway)
-mean(E(graph_pathway)$weight)
-
 ggplot(as.data.frame(E(graph_pathway)$weight), aes(x=E(graph_pathway)$weight)) +
   geom_histogram(binwidth=1, color="black", fill="skyblue") +
   labs(x="Value", y="Frequency", title="Histogram of Values") +
@@ -572,7 +566,7 @@ threshold_graph=95
     graph_pathway_trim=delete.vertices(graph_pathway_trim, which(degree(graph_pathway_trim)<=0))
     
     set.seed(42) 
-    clusters=cluster_louvain(graph_pathway_trim,resolution = 1)
+    clusters=cluster_walktrap(graph_pathway_trim)
     membership=as.data.frame(membership(clusters))
     cluster_results=data.frame(id=rownames(membership),cluster=membership[,1])
     
