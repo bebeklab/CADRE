@@ -1,0 +1,92 @@
+---
+title: "Example"
+output: html_document
+date: "2024-05-10"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Install and load packages and set up environment.
+```{r}
+options(scipen=999)
+# devtools::install()
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    {install.packages("BiocManager")}
+
+required_packages <- c("limma", "fgsea", "Biobase")
+for (k in required_packages){
+  if (!requireNamespace(k, quietly = TRUE)) BiocManager::install(k)
+  suppressPackageStartupMessages(library(k,character.only = TRUE))
+ }
+ 
+
+
+```
+# Load data
+```{r}
+CADREmodel::load_and_preprocess_data	(drug_data_path= system.file("data", "drug_api.csv", package = "CADREmodel"),
+                         cell_data_path= system.file("data", "cellline_api.csv", package = "CADREmodel"),
+                         summary_df_ALMANAC_path=system.file("data", "summary_df_ALMANAC.csv", package = "CADREmodel"),
+                         summary_df_api_path=system.file("data", "summary_api.csv", package = "CADREmodel"),
+                         pathway_gene_set_path=system.file("data", "c2.cp.kegg.v2023.1.Hs.symbols.gmt", package = "CADREmodel"),
+                         tissue_cancer_infosheet_path=system.file("data", "ALMANAC_tissues_GSE116450_cancer.csv", package = "CADREmodel"))
+
+
+```
+# Create folder and process data and prepare for variables
+```{r}
+# example here used the 9st row of sheet, aka melanoma.
+row_number <- 9
+tissue_cancer_infosheet_temp <- tissue_cancer_infosheet[row_number, ]
+tissue <- tissue_cancer_infosheet_temp[1, 1]
+cancer <- tissue_cancer_infosheet_temp[1, 2]
+tissue_folder <- paste0("./result/", tissue, "/")
+  
+ALMANAC_sub_tissue_converted=CADREmodel::processTissueCancerInfo(tissue_cancer_infosheet, summary_df_ALMANAC, summary_df_api, DC_drug, DC_cell, row_number)
+
+unique_cellnames <- unique(ALMANAC_sub_tissue_converted$cell_line_id)
+unique_drugnames <- unique(c(ALMANAC_sub_tissue_converted$drug_row_id, ALMANAC_sub_tissue_converted$drug_col_id))
+
+```
+# Classify sensitivity to drug, and calculate Tri-scpre
+```{r}
+
+CADREmodel::analyzeDrugCellInteractions(ALMANAC_sub_tissue_converted, tissue_folder,unique_cellnames,unique_drugnames) 
+
+# Extract results of this function
+synergy_results <- readRDS(paste0(tissue_folder, "RDS/synergy_results.RDS"))
+synergy_scores <- synergy_results$score_sheet
+share_synergy_list <- synergy_results$share_synergy_list
+share_antagonism_list <- synergy_results$share_antagonism_list
+
+tri_scores=readRDS(paste0(tissue_folder,"RDS/tri_scores.RDS"))
+sensitivity_classification=readRDS(paste0(tissue_folder,"RDS/sensitivity_classification.RDS"))
+
+```
+# Dysregulated Pathways
+```{r}
+geoID<- 'GSE116450'
+
+interesting_pathways <- CADREmodel::analyzeDysregulatedPathways(geoID,sensitivity_classification,
+                                                 pathway_gene_set,unique_drugnames,tissue_folder,tissue,cancer)
+
+```
+# Form graph
+```{r}
+graph_pathway=CADREmodel::generateGraph(interesting_pathways, tissue_folder, tissue) 
+
+```
+# Predict drug synergy from cluster
+```{r}
+probability_list_all=CADREmodel::prediction_by_cluster(tissue_folder, threshold_graph = 95,tri_scores,graph_pathway) 
+```
+# Calculate AUC and return prediction results
+```{r}
+drug_prediction=CADREmodel::calculate_performance_metrics(tissue_folder, tissue, threshold=0.99)
+  
+```

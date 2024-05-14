@@ -1,0 +1,24 @@
+Package: CADREmodel
+Title: CADRE model
+Version: 1.0.0
+Authors@R: 
+     c(person(given = "Chunguang", family = "Lai", role = c("aut", "cre"), email = "cxl1214@case.edu"),
+	 person(given = "Gurkan", family = "Bebek", role = c("aut"), email = "gurkan@case.edu"))
+Description: CADRE model.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Imports: 
+    Biobase,
+    dplyr,
+    fgsea,
+    GEOquery,
+    ggplot2,
+    igraph,
+    limma,
+    parallel,
+    pROC,
+    PRROC,
+    reshape2,
+    tidyr
