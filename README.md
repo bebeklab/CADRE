@@ -11,7 +11,7 @@ library(devtools)
 install_github("bebeklab/CADRE")
 ```
 
-Download and copypaste summary_api.csv, summary_df_ALMANAC.csv to CADREmodel/data/, or your_data_folder/ and change the file path in Example.Rmd.
+**Download and copypaste summary_api.csv, summary_df_ALMANAC.csv to CADREmodel/data/, or your_data_folder/ and change the file path in Example.Rmd.**
 
 
 ## Example
