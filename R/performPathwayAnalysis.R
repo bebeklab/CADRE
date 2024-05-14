@@ -63,8 +63,6 @@ performPathwayAnalysis <- function(group_info, eset_sub_tissue,tissue_folder, en
   names(drug_interesting_pathway)=unique_drugnames
 
   # Save results
-  result_path <- file.path(tissue_folder, "pathway_analysis_results.RDS")
-  saveRDS(drug_interesting_pathway, file = result_path)
-
+  saveRDS(drug_interesting_pathway, file = paste0(tissue_folder, "RDS/pathway_analysis_results.RDS"))
   return(drug_interesting_pathway)
 }
